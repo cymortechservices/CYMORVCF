@@ -14,7 +14,7 @@ import { normalizePhone } from "../lib/phone";
 import { safeFilename } from "../lib/vcf";
 import { buildExport, parseFormat } from "../lib/exporter";
 import { logActivity } from "../lib/activity";
-import { computeAnalytics, rangeToDays } from "../lib/analytics";
+import { computeAnalytics, rangeToDays, Row } from "../lib/analytics";
 import { hashIp, verifyCaptcha, escapeRegex, isObjectId } from "../lib/security";
 
 export const sessionsRouter = Router();
@@ -176,7 +176,7 @@ sessionsRouter.get("/:id/activity", requireAuth, wrap(async (req: AuthedRequest,
 sessionsRouter.get("/:id/analytics", requireAuth, wrap(async (req: AuthedRequest, res) => {
   const s = await ownSession(req);
   const rows = await Contact.find({ sessionId: s._id }).select("createdAt country countryCode").limit(100000).lean();
-  res.json({ ok: true, data: { ...computeAnalytics(rows, { days: rangeToDays(req.query.range), target: s.target }), duplicates: s.duplicateCount ?? 0, unique: s.contactCount, exports: await Export.countDocuments({ sessionId: s._id }) } });
+  res.json({ ok: true, data: { ...computeAnalytics(rows as unknown as Row[], { days: rangeToDays(req.query.range), target: s.target }), duplicates: s.duplicateCount ?? 0, unique: s.contactCount, exports: await Export.countDocuments({ sessionId: s._id }) } });
 }));
 
 sessionsRouter.get("/:id/export", requireAuth, wrap(async (req: AuthedRequest, res) => {
