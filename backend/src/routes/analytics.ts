@@ -5,7 +5,7 @@ import { Export } from "../models/Export";
 import { ActivityLog } from "../models/ActivityLog";
 import { requireAuth, AuthedRequest } from "../middleware/auth";
 import { wrap } from "../middleware/error";
-import { computeAnalytics, rangeToDays } from "../lib/analytics";
+import { computeAnalytics, rangeToDays, Row } from "../lib/analytics";
 
 export const analyticsRouter = Router();
 analyticsRouter.get("/", requireAuth, wrap(async (req: AuthedRequest, res) => {
@@ -14,7 +14,7 @@ analyticsRouter.get("/", requireAuth, wrap(async (req: AuthedRequest, res) => {
   const rows = await Contact.find({ sessionId: { $in: ids } }).select("createdAt country countryCode").limit(200000).lean();
   const days = rangeToDays(req.query.range);
   res.json({ ok: true, data: {
-    ...computeAnalytics(rows, { days }),
+    ...computeAnalytics(rows as unknown as Row[], { days }),
     totalContacts: sessions.reduce((a, s) => a + s.contactCount, 0), duplicates: sessions.reduce((a, s) => a + (s.duplicateCount ?? 0), 0),
     sessions: sessions.length, activeSessions: sessions.filter((s) => s.status === "ACTIVE").length,
     completionRate: sessions.length ? Math.round((sessions.filter((s) => s.contactCount >= s.target).length / sessions.length) * 1000) / 10 : 0,
