@@ -1,0 +1,58 @@
+name: Extract CYMOR VCF zip
+
+on:
+  # Runs automatically when the zip is pushed to the repo root
+  push:
+    paths:
+      - "cymor-vcf-complete.zip"
+  # Or run it by hand from the Actions tab
+  workflow_dispatch:
+    inputs:
+      zip_name:
+        description: "Zip file in the repo root"
+        default: "cymor-vcf-complete.zip"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract zip into repo root
+        env:
+          ZIP: ${{ github.event.inputs.zip_name || 'cymor-vcf-complete.zip' }}
+        run: |
+          set -euo pipefail
+          test -f "$ZIP" || { echo "::error::$ZIP not found in repo root"; exit 1; }
+          rm -rf /tmp/extract && mkdir /tmp/extract
+          unzip -q "$ZIP" -d /tmp/extract
+
+          # The zip holds one top-level folder (cymor-vcf/). Flatten it into the root.
+          SRC=/tmp/extract
+          if [ "$(ls -A /tmp/extract | wc -l)" -eq 1 ] && [ -d "/tmp/extract/$(ls /tmp/extract)" ]; then
+            SRC="/tmp/extract/$(ls /tmp/extract)"
+          fi
+
+          # -a keeps dotfiles (.gitignore, .env.example); .github/ is never overwritten
+          rsync -a --exclude='.github' --exclude='.env' "$SRC"/ ./
+
+          # Remove the zip so this workflow does not run again
+          git rm -q --cached "$ZIP" || true
+          rm -f "$ZIP"
+
+      - name: Commit extracted files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+          else
+            git commit -m "Extract CYMOR VCF project from zip [skip ci]"
+            git push
+          fi
